@@ -13,13 +13,11 @@ import java.util.HashMap;
 public class ProxiesScrapper extends AsyncTask<Void, Void, ArrayList<HashMap<String, String>>> {
 
     private ProxiesCallback proxiesCallback;
-    private String proxies_url;
+    private String proxies_url = "https://spys.one/en/free-proxy-list/";
 
 
-    public ProxiesScrapper(ProxiesCallback proxiesCallback, String proxies_url){
+    public ProxiesScrapper(ProxiesCallback proxiesCallback){
         this.proxiesCallback = proxiesCallback;
-        this.proxies_url = proxies_url;
-
     }
 
     @Override
