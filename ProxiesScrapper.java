@@ -1,0 +1,166 @@
+package com.example.pentestertoolkit.Privacy.ProxySection;
+
+import android.os.AsyncTask;
+import android.util.Log;
+
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
+
+import java.sql.Array;
+import java.util.ArrayList;
+import java.util.HashMap;
+
+public class ProxiesDataClient extends AsyncTask<Void, Void, ArrayList<HashMap<String, String>>> {
+
+    private ProxiesDataCallback proxiesDataCallback;
+    private String proxies_url;
+
+
+    public ProxiesDataClient(ProxiesDataCallback proxiesDataCallback, String proxies_url){
+        this.proxiesDataCallback = proxiesDataCallback;
+        this.proxies_url = proxies_url;
+
+    }
+
+    @Override
+    protected ArrayList<HashMap<String, String>> doInBackground(Void... voids) {
+        return fetch();
+    }
+
+    @Override
+    protected void onPostExecute(ArrayList<HashMap<String, String>> proxies_list) {
+        if(proxiesDataCallback != null){
+            proxiesDataCallback.onProxiesDataResult(proxies_list);
+        }
+    }
+
+    public ArrayList<HashMap<String, String>> fetch(){
+
+        ArrayList<HashMap<String, String>> proxies_list = new ArrayList<>();
+
+        try{
+
+
+            Document proxies_document = Jsoup.connect(proxies_url).get();
+
+            Elements proxies_table_rows = proxies_document.getElementsByClass("spy1x");
+
+            proxies_table_rows.addAll(proxies_document.getElementsByClass("spy1xx"));
+
+            String port_values_script_element = proxies_document.getElementsByTag("script").get(5).html();
+
+            HashMap<String, Integer> port_calculation_values_hashmap = generatePortCalculationValuesHashmap(port_values_script_element);
+
+            proxies_list = generateProxiesList(proxies_table_rows, port_calculation_values_hashmap);
+
+
+        }catch (Exception e){
+            e.printStackTrace();
+        }
+
+        return proxies_list;
+    }
+
+    private HashMap<String, Integer> generatePortCalculationValuesHashmap(String port_values_script_element_text){
+        //Store values in hashmap which will be used for calculation of port number
+        HashMap<String, Integer> port_calculation_values_hashmap = new HashMap<>();
+        String[] port_calculation_expressions_with_value = port_values_script_element_text.split(";");
+
+        for(String expression_with_value: port_calculation_expressions_with_value){
+
+            String expression = expression_with_value.split("=")[0];
+            String value_str = expression_with_value.split("=")[1];
+            int value;
+            if(value_str.contains("^")){
+                //value contains an expression with constant
+                // it should be evaluated before putting in hashmap
+                // luckily the values having expression will come after simple values in iteration
+                // so the value of expressions can get retrieved from hashmap as value of simple expression stored first in hashmap
+                value = Integer.parseInt(value_str.split("\\^")[0]) ^ port_calculation_values_hashmap.get(value_str.split("\\^")[1]);
+
+            }else{
+                value = Integer.parseInt(value_str);
+            }
+
+            port_calculation_values_hashmap.put(expression, value);
+
+        }
+
+        return port_calculation_values_hashmap;
+    }
+
+    private ArrayList<HashMap<String, String>> generateProxiesList(Elements proxies_table_rows, HashMap<String, Integer> port_calculation_values_hashmap){
+
+        ArrayList<HashMap<String, String>> proxies_list = new ArrayList<>();
+
+        for(Element proxy_row: proxies_table_rows){
+
+            //Contains expression for calculating port no
+            //First element of array is not an expression
+            String[] port_calculation_expressions_groups =  proxy_row.children().get(0).getElementsByTag("script").html().split("\\+");
+
+            // If length of array is greater than 1, then it means it contains expressions
+            // and it also means that the current row is the data of an actual proxy not headers of table
+            if(port_calculation_expressions_groups.length > 1) {
+
+                String port_number_str = "";
+
+                // Calculating value of port number for current proxy
+                // Start from 2nd value of array because of 1st value of array is always not
+                // an expression
+                for(int i=1; i < port_calculation_expressions_groups.length; i++){
+
+                    String expression_group = port_calculation_expressions_groups[i];
+
+                    //Splitting expression, in each group there will always be two expressions
+                    String[] expressions = expression_group.split("\\^");
+                    String exp1 = expressions[0].replace("(","");
+                    String exp2 = expressions[1].replace(")", "");
+
+                    if (port_calculation_values_hashmap.containsKey(exp1) && port_calculation_values_hashmap.containsKey(exp2))
+                        port_number_str += (port_calculation_values_hashmap.get(exp1) ^ port_calculation_values_hashmap.get(exp2)) + "";
+
+                }
+
+
+                    // Create a hashmap for proxy and storing data in it
+                    HashMap<String, String> proxy_data = new HashMap<>();
+                    proxy_data.put("ip", proxy_row.children().get(0).text());
+                    proxy_data.put("protocol", proxy_row.children().get(1).text());
+                    proxy_data.put("anonymity", proxy_row.children().get(2).text());
+                    proxy_data.put("country", proxy_row.children().get(3).text());
+                    proxy_data.put("latency", proxy_row.children().get(5).text());
+                    proxy_data.put("uptime", proxy_row.children().get(7).text().split(" ")[0]);
+                    proxy_data.put("port", port_number_str);
+
+                    // Cleaning country value
+                    String country = proxy_data.get("country");
+                    if(country.contains("(")){
+                        //Sometimes country values will be in this format: country_name (city_name)
+                        //country_name is only need, remove the city_name
+                        //When splitting the country name, it will have a space at the end, need to replace it with empty string
+                        proxy_data.put("country", country.split("\\(")[0].replace(" ",""));
+                    }else{
+                        // Sometimes country values will be in this format: country_name !!!
+                        // Need to replace the ' !!!' with empty string
+                        proxy_data.put("country", country.replace(" !!!", ""));
+
+                    }
+
+                    // Storing hashmap in proxies_list
+                    proxies_list.add(proxy_data);
+
+            }
+        }
+
+        return proxies_list;
+    }
+
+    public interface ProxiesDataCallback{
+
+        void onProxiesDataResult(ArrayList<HashMap<String, String>> proxies_list);
+
+    }
+}
