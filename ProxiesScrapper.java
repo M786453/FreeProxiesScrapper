@@ -1,5 +1,3 @@
-package com.example.pentestertoolkit.Privacy.ProxySection;
-
 import android.os.AsyncTask;
 import android.util.Log;
 
@@ -12,14 +10,14 @@ import java.sql.Array;
 import java.util.ArrayList;
 import java.util.HashMap;
 
-public class ProxiesDataClient extends AsyncTask<Void, Void, ArrayList<HashMap<String, String>>> {
+public class ProxiesScrapper extends AsyncTask<Void, Void, ArrayList<HashMap<String, String>>> {
 
-    private ProxiesDataCallback proxiesDataCallback;
+    private ProxiesCallback proxiesCallback;
     private String proxies_url;
 
 
-    public ProxiesDataClient(ProxiesDataCallback proxiesDataCallback, String proxies_url){
-        this.proxiesDataCallback = proxiesDataCallback;
+    public ProxiesScrapper(ProxiesCallback proxiesCallback, String proxies_url){
+        this.proxiesCallback = proxiesCallback;
         this.proxies_url = proxies_url;
 
     }
@@ -31,8 +29,8 @@ public class ProxiesDataClient extends AsyncTask<Void, Void, ArrayList<HashMap<S
 
     @Override
     protected void onPostExecute(ArrayList<HashMap<String, String>> proxies_list) {
-        if(proxiesDataCallback != null){
-            proxiesDataCallback.onProxiesDataResult(proxies_list);
+        if(proxiesCallback != null){
+            proxiesCallback.onProxiesDataResult(proxies_list);
         }
     }
 
@@ -158,7 +156,7 @@ public class ProxiesDataClient extends AsyncTask<Void, Void, ArrayList<HashMap<S
         return proxies_list;
     }
 
-    public interface ProxiesDataCallback{
+    public interface ProxiesCallback{
 
         void onProxiesDataResult(ArrayList<HashMap<String, String>> proxies_list);
 
